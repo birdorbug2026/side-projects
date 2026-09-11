@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>八哥 or Bug | Side Projects & 學習筆記</title>
+    <style>
+        :root {
+            --primary-color: #2b5c8f;
+            --accent-color: #d97706;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-color: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px 0;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 20px;
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            margin-bottom: 30px;
+            border: 1px solid var(--border-color);
+        }
+
+        h1 {
+            color: var(--primary-color);
+            font-size: 2.2rem;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: var(--accent-color);
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .bible-verse {
+            font-style: italic;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            background-color: #f1f5f9;
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            margin-top: 10px;
+        }
+
+        section {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border-color);
+        }
+
+        h2 {
+            color: var(--primary-color);
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+        }
+
+        .about-text p {
+            margin-bottom: 12px;
+        }
+
+        .project-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .project-card {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            background-color: #fff;
+        }
+
+        .project-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .project-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 8px;
+        }
+
+        .project-desc {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            margin-bottom: 15px;
+        }
+
+        .project-links {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 6px 14px;
+            font-size: 0.88rem;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #1d4067;
+        }
+
+        .btn-outline {
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            background-color: #f8fafc;
+        }
+
+        .btn-outline:hover {
+            background-color: #e2e8f0;
+        }
+
+        .social-links {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            header, section {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- 頁首區塊 -->
+        <header>
+            <h1>八哥 or Bug</h1>
+            <div class="subtitle">今天的我，到底是 debug 的八哥，還是產 bug 的 bug 呢？</div>
+            <div class="bible-verse">「你的話是我腳前的燈，是我路上的光。」— 詩篇 119:105</div>
+        </header>
+
+        <!-- 關於我區塊 -->
+        <section id="about">
+            <h2>關於我</h2>
+            <div class="about-text">
+                <p>一個具備程式入門基礎的創作者，記錄自己學習程式與 AI 的點滴與心得。</p>
+            </div>
+        </section>
+
+        <!-- 作品列表區塊 -->
+        <section id="projects">
+            <h2> Side Projects & 小教案</h2>
+            <div class="project-grid">
+                
+                <!-- 專案 1：羅馬數字轉換器 -->
+                <div class="project-card">
+                    <div class="project-title">羅馬數字轉阿拉伯數字</div>
+                    <div class="project-desc">純前端實作的小教案工具，輸入羅馬數字即可即時轉換為阿拉伯數字，並附有詳細轉換規則。</div>
+                    <div class="project-links">
+                        <!-- 請替換為你的網頁與文章網址 -->
+                        <a href="roman-numeral-converter/index.html" class="btn btn-primary">線上試用</a>
+                        <a href="https://vocus.cc" target="_blank" class="btn btn-outline">方格子教學文</a>
+                    </div>
+                </div>
+
+                <!-- 預留未來專案 -->
+                <div class="project-card" style="opacity: 0.7; border-style: dashed;">
+                    <div class="project-title">更多迷你專案實踐中...</div>
+                    <div class="project-desc">持續將靈感轉化為程式碼，敬請期待！</div>
+                    <div class="project-links">
+                        <span class="btn btn-outline" style="cursor: default;">孵化中</span>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- 社群與追蹤 -->
+        <section id="contact">
+            <h2>關注我的創作者之路</h2>
+            <div class="social-links">
+                <!-- 請替換為你的個人社群連結 -->
+                <a href="https://vocus.cc/salon/6a8fc8ae99420d8c4bc9cecd" target="_blank" class="btn btn-outline">📖 方格子專欄</a>
+                <!-- <a href="https://youtube.com" target="_blank" class="btn btn-outline">▶️ YouTube 頻道</a> -->
+                <!-- <a href="https://github.com" target="_blank" class="btn btn-outline">💻 GitHub</a> -->
+            </div>
+        </section>
+
+        <footer>
+            <p>&copy; 八哥 or Bug. Built with 工人智慧 & HTML/CSS.</p>
+        </footer>
+    </div>
+
+</body>
+</html>
