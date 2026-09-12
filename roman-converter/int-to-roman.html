@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>阿拉伯數字轉羅馬數字演算法動畫演示</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700;900&family=Times+New+Roman:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f8fafc;
+        }
+        .roman-font {
+            font-family: 'Times New Roman', Times, serif;
+        }
+        
+        /* 手繪風格框框 (Sketch Box Effect matching user handwritten concept) */
+        .sketch-box {
+            border: 2.5px solid #1e293b;
+            border-radius: 1rem;
+            background-color: #ffffff;
+            box-shadow: 4px 4px 0px #cbd5e1;
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        
+        .sketch-dot-frame {
+            border: 2px dashed #475569;
+            background-color: #fffbeb;
+            border-radius: 0.75rem;
+        }
+        
+        /* 點數點圖示 */
+        .token-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 1.5px solid #0f172a;
+            background-color: #f59e0b;
+            display: inline-block;
+            transition: transform 0.2s ease, background-color 0.3s;
+        }
+        .token-dot.consumed {
+            background-color: #94a3b8;
+            border-color: #64748b;
+            opacity: 0.35;
+        }
+        
+        /* 動畫卡片高亮 */
+        .highlight-active {
+            border-color: #f59e0b !important;
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3) !important;
+            transform: scale(1.05);
+        }
+        .highlight-match {
+            border-color: #10b981 !important;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3) !important;
+            background-color: #ecfdf5 !important;
+        }
+        .highlight-skip {
+            opacity: 0.5;
+        }
+
+        @keyframes pulse-short {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+        }
+        .animate-bounce-short {
+            animation: pulse-short 0.4s ease-in-out;
+        }
+    </style>
+</head>
+<body class="p-3 md:p-8 text-slate-800">
+
+    <div class="max-w-6xl mx-auto space-y-6">
+
+        <!-- Top Header & Reference Table -->
+        <header class="bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-slate-200">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+                        <span class="bg-amber-100 text-amber-800 text-xs md:text-sm px-3 py-1 rounded-full font-bold">減法簡化算法</span>
+                        阿拉伯數字 ➔ 羅馬數字 裝箱動畫
+                    </h1>
+                    <p class="text-slate-500 text-xs md:text-sm mt-1">擴充對照表（含減法組合 IV, IX, XL, XC, CD, CM），從大到小逐一扣除點數裝箱！</p>
+                </div>
+
+                <!-- 擴充羅馬數字對照表 Reference Table -->
+                <div class="bg-amber-50 border border-amber-200 rounded-2xl p-3 md:p-4">
+                    <div class="text-xs font-bold text-amber-900 mb-2 flex items-center gap-1">
+                        <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                        擴充對照表 (含減法特殊字元)
+                    </div>
+                    <div id="referenceTableList" class="flex items-center gap-1 md:gap-1.5 flex-wrap justify-center">
+                        <!-- Dynamically populated reference tiles -->
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Controls & Input Panel -->
+        <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4">
+            <!-- Input area -->
+            <div class="flex items-center gap-3 w-full md:w-auto">
+                <label for="arabicInput" class="font-bold text-slate-700 whitespace-nowrap text-sm md:text-base">輸入整數 (1~3999)：</label>
+                <input type="number" id="arabicInput" min="1" max="3999" value="17" class="text-center font-mono text-xl font-bold bg-slate-50 border-2 border-slate-300 focus:border-amber-500 focus:outline-none px-3 py-1.5 rounded-xl w-28 text-slate-900 shadow-inner">
+                <button id="btnGenerate" class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2 rounded-xl text-sm transition shadow-sm whitespace-nowrap">
+                    設定數字
+                </button>
+            </div>
+
+            <!-- Preset buttons -->
+            <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-xs font-semibold text-slate-400">快速範例:</span>
+                <button onclick="setInputValue(17)" class="px-2.5 py-1 text-xs font-bold bg-slate-100 hover:bg-amber-100 text-slate-700 rounded-lg border border-slate-200 transition">17 (XVII)</button>
+                <button onclick="setInputValue(14)" class="px-2.5 py-1 text-xs font-bold bg-slate-100 hover:bg-amber-100 text-slate-700 rounded-lg border border-slate-200 transition">14 (XIV)</button>
+                <button onclick="setInputValue(44)" class="px-2.5 py-1 text-xs font-bold bg-slate-100 hover:bg-amber-100 text-slate-700 rounded-lg border border-slate-200 transition">44 (XLIV)</button>
+                <button onclick="setInputValue(9)" class="px-2.5 py-1 text-xs font-bold bg-slate-100 hover:bg-amber-100 text-slate-700 rounded-lg border border-slate-200 transition">9 (IX)</button>
+                <button onclick="setInputValue(1994)" class="px-2.5 py-1 text-xs font-bold bg-slate-100 hover:bg-amber-100 text-slate-700 rounded-lg border border-slate-200 transition">1994 (MCMXCIV)</button>
+            </div>
+
+            <!-- Playback Controls -->
+            <div class="flex items-center gap-2 w-full md:w-auto justify-end">
+                <button id="btnPrev" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition disabled:opacity-40">
+                    ◀ 上一步
+                </button>
+                <button id="btnPlay" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-sm transition shadow-md flex items-center gap-1.5">
+                    <span id="playIcon">▶</span> <span id="playText">自動播放</span>
+                </button>
+                <button id="btnNext" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition disabled:opacity-40">
+                    下一步 ▶
+                </button>
+                <button id="btnReset" class="px-3 py-2 border border-slate-300 hover:bg-slate-100 text-slate-600 font-semibold rounded-xl text-sm transition">
+                    ↺ 重置
+                </button>
+            </div>
+        </section>
+
+        <!-- Main Interactive Animation Canvas -->
+        <main class="bg-slate-100 rounded-3xl p-4 md:p-6 border border-slate-200 shadow-inner min-h-[420px] flex flex-col justify-between space-y-6">
+            
+            <!-- Top Status Bar & Step Indicator -->
+            <div class="flex items-center justify-between flex-wrap gap-2 px-2 border-b border-slate-200 pb-3">
+                <div class="flex items-center gap-3">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">比對進度</span>
+                    <span id="stepCounter" class="text-xs font-black text-amber-900 bg-amber-100 px-3 py-1 rounded-full border border-amber-300">
+                        步驟: 0 / 0
+                    </span>
+                </div>
+                <!-- Action Status Message Badge -->
+                <div id="statusBadge" class="text-xs md:text-sm font-bold text-slate-700 px-3 py-1 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center gap-1.5">
+                    準備進行比對...
+                </div>
+            </div>
+
+            <!-- Visual Token Reservoir (點數池 - 展示剩餘點數) -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
+                <div class="flex items-center justify-between text-xs font-bold text-slate-600">
+                    <span class="flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+                        待扣除數字總點數池 (Total Tokens Pool)：
+                    </span>
+                    <span id="remainingCounterText" class="font-mono text-amber-700 text-sm">剩餘: 0</span>
+                </div>
+                <!-- Dots visual container -->
+                <div id="dotsReservoir" class="flex flex-wrap gap-1.5 p-3 min-h-[56px] max-h-[120px] overflow-y-auto bg-slate-50 rounded-xl border border-dashed border-slate-300 items-center">
+                    <span class="text-xs text-slate-400 italic">尚未輸入數字...</span>
+                </div>
+            </div>
+
+            <!-- Current Comparison Stage (當前比對卡片) -->
+            <div id="activeComparisonStage" class="bg-white border-2 border-slate-800 rounded-2xl p-4 md:p-5 shadow-md transition-all">
+                <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-2xl bg-amber-100 border-2 border-amber-400 flex items-center justify-center font-black text-2xl text-amber-950 font-mono" id="currSymbolDisplay">
+                            ?
+                        </div>
+                        <div>
+                            <div class="text-xs font-bold text-slate-400">當前測試羅馬字元與數值</div>
+                            <div class="text-sm md:text-base font-bold text-slate-800 flex items-center gap-2">
+                                <span id="currSymbolValText" class="roman-font font-extrabold text-amber-800 text-lg">?</span>
+                                <span class="text-slate-400">=</span>
+                                <span id="currValText" class="font-mono font-bold text-slate-700">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Comparison Logic Math -->
+                    <div id="comparisonFormula" class="bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-center font-mono text-sm md:text-base font-bold text-slate-700">
+                        剩餘數值 <span id="mathRemaining">0</span> vs 標的 <span id="mathVal">0</span>
+                    </div>
+
+                    <!-- Match Result Tag -->
+                    <div id="matchResultBadge" class="text-sm font-black px-4 py-2 rounded-xl bg-slate-100 text-slate-500 border border-slate-200">
+                        等待比對
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom: Output Roman Numeral Assembly Line (手繪點數圈框裝箱展示區) -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
+                <div class="text-xs font-bold text-slate-600 flex items-center justify-between">
+                    <span class="flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                        已扣除裝箱的羅馬數字群組 (Boxed Converted Tokens)：
+                    </span>
+                    <span id="outputLength" class="text-[11px] text-slate-400">字元數: 0</span>
+                </div>
+                <!-- Boxed dots output display matching user drawing concept -->
+                <div id="romanOutputSequence" class="flex items-center gap-3 flex-wrap min-h-[96px] bg-slate-50 p-3 rounded-xl border border-dashed border-slate-300">
+                    <span class="text-xs text-slate-400 italic px-2">尚未產生羅馬字元裝箱...</span>
+                </div>
+            </div>
+
+            <!-- Step Narrative Explanation Bar -->
+            <div class="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-3.5 flex items-start gap-3">
+                <span class="text-amber-600 text-lg">💡</span>
+                <div id="explanationText" class="text-xs md:text-sm text-slate-700 leading-relaxed font-medium">
+                    載入中...
+                </div>
+            </div>
+
+            <!-- Final Result Banner -->
+            <div id="finalResultBanner" class="bg-white border-2 border-emerald-500 rounded-2xl p-4 md:p-5 shadow-lg hidden transform transition-all duration-300">
+                <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-emerald-100 text-emerald-600 rounded-full p-2">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        </div>
+                        <div>
+                            <div class="text-xs font-bold text-slate-400">轉換完成</div>
+                            <div id="finalConversionFormula" class="text-base md:text-xl font-black text-slate-800">
+                                阿拉伯數字 <span id="finalArabicVal">17</span> 轉換為 羅馬數字
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-3xl md:text-4xl font-black text-emerald-600 roman-font tracking-widest bg-emerald-50 px-6 py-2 rounded-2xl border border-emerald-200">
+                        <span id="finalRomanVal">XVII</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer Algorithm Summary -->
+        <footer class="bg-white rounded-2xl p-5 border border-slate-200 text-slate-600 text-sm leading-relaxed">
+            <h3 class="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                <svg class="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
+                演算法核心步驟解析：
+            </h3>
+            <ol class="list-decimal list-inside space-y-1.5 text-xs md:text-sm text-slate-600">
+                <li><strong>擴充對照表：</strong> 將需要減法表示的數字如 <code class="bg-slate-100 px-1 rounded text-amber-800 font-bold">4(IV)</code>, <code class="bg-slate-100 px-1 rounded text-amber-800 font-bold">9(IX)</code>, <code class="bg-slate-100 px-1 rounded text-amber-800 font-bold">40(XL)</code>, <code class="bg-slate-100 px-1 rounded text-amber-800 font-bold">90(XC)</code>, <code class="bg-slate-100 px-1 rounded text-amber-800 font-bold">400(CD)</code>, <code class="bg-slate-100 px-1 rounded text-amber-800 font-bold">900(CM)</code> 直接納入表中，化繁為簡。</li>
+                <li><strong>由大到小比對：</strong> 從最大值 M (1000) 開始向下比對。</li>
+                <li><strong>符合條件 (剩餘 ≥ 當前值)：</strong> 取出對應數量的點數「圈入手繪框框」中並標註對應的羅馬符號，隨後減去該數值，繼續用當前符號進行測試。</li>
+                <li><strong>不符合條件 (剩餘 &lt; 當前值)：</strong> 切換至下一個較小的羅馬符號，直到剩餘數值為 0。</li>
+            </ol>
+        </footer>
+
+    </div>
+
+    <script>
+        // Expanded Roman Table Map
+        const EXPANDED_ROMAN_MAP = [
+            { symbol: 'M', val: 1000 },
+            { symbol: 'CM', val: 900 },
+            { symbol: 'D', val: 500 },
+            { symbol: 'CD', val: 400 },
+            { symbol: 'C', val: 100 },
+            { symbol: 'XC', val: 90 },
+            { symbol: 'L', val: 50 },
+            { symbol: 'XL', val: 40 },
+            { symbol: 'X', val: 10 },
+            { symbol: 'IX', val: 9 },
+            { symbol: 'V', val: 5 },
+            { symbol: 'IV', val: 4 },
+            { symbol: 'I', val: 1 }
+        ];
+
+        // State variables
+        let totalArabic = 17;
+        let animationSteps = [];
+        let currentStepIdx = 0;
+        let playInterval = null;
+        const PLAY_SPEED = 1200; // ms per step
+
+        // DOM Elements
+        const referenceTableList = document.getElementById('referenceTableList');
+        const arabicInput = document.getElementById('arabicInput');
+        const btnGenerate = document.getElementById('btnGenerate');
+        const btnPrev = document.getElementById('btnPrev');
+        const btnNext = document.getElementById('btnNext');
+        const btnPlay = document.getElementById('btnPlay');
+        const btnReset = document.getElementById('btnReset');
+        const playIcon = document.getElementById('playIcon');
+        const playText = document.getElementById('playText');
+        const stepCounter = document.getElementById('stepCounter');
+        const statusBadge = document.getElementById('statusBadge');
+        const remainingCounterText = document.getElementById('remainingCounterText');
+        const dotsReservoir = document.getElementById('dotsReservoir');
+        const currSymbolDisplay = document.getElementById('currSymbolDisplay');
+        const currSymbolValText = document.getElementById('currSymbolValText');
+        const currValText = document.getElementById('currValText');
+        const mathRemaining = document.getElementById('mathRemaining');
+        const mathVal = document.getElementById('mathVal');
+        const matchResultBadge = document.getElementById('matchResultBadge');
+        const romanOutputSequence = document.getElementById('romanOutputSequence');
+        const outputLength = document.getElementById('outputLength');
+        const explanationText = document.getElementById('explanationText');
+        const finalResultBanner = document.getElementById('finalResultBanner');
+        const finalArabicVal = document.getElementById('finalArabicVal');
+        const finalRomanVal = document.getElementById('finalRomanVal');
+
+        function renderReferenceHeader() {
+            if (!referenceTableList) return;
+            referenceTableList.innerHTML = EXPANDED_ROMAN_MAP.map((item, idx) => `
+                <div id="ref-tile-${idx}" class="sketch-box w-10 h-12 md:w-11 md:h-13 rounded-xl flex flex-col items-center justify-center bg-white transition-all">
+                    <span class="roman-font font-black text-amber-950 text-sm md:text-base leading-none">${item.symbol}</span>
+                    <span class="text-[10px] font-bold text-slate-500 mt-0.5">${item.val}</span>
+                </div>
+            `).join('');
+        }
+
+        function generateSteps(num) {
+            const steps = [];
+            let remaining = num;
+            let mapIndex = 0;
+            let currentOutput = [];
+
+            // Initial Step
+            steps.push({
+                type: 'INIT',
+                remaining: remaining,
+                mapIndex: mapIndex,
+                symbol: EXPANDED_ROMAN_MAP[0].symbol,
+                val: EXPANDED_ROMAN_MAP[0].val,
+                currentOutput: [],
+                explanation: `準備開始將阿拉伯數字 ${num} 轉換為羅馬數字。點數池已置入 ${num} 個點數。從對照表最大的 ${EXPANDED_ROMAN_MAP[0].symbol} (${EXPANDED_ROMAN_MAP[0].val}) 開始比對。`
+            });
+
+            while (remaining > 0 && mapIndex < EXPANDED_ROMAN_MAP.length) {
+                const currentItem = EXPANDED_ROMAN_MAP[mapIndex];
+
+                if (remaining >= currentItem.val) {
+                    // Match Success Step
+                    remaining -= currentItem.val;
+                    currentOutput.push({
+                        symbol: currentItem.symbol,
+                        val: currentItem.val
+                    });
+
+                    steps.push({
+                        type: 'MATCH',
+                        remaining: remaining,
+                        mapIndex: mapIndex,
+                        symbol: currentItem.symbol,
+                        val: currentItem.val,
+                        currentOutput: [...currentOutput],
+                        explanation: `【符合條件】剩餘數值 ${remaining + currentItem.val} ≥ ${currentItem.val} (${currentItem.symbol})！將 ${currentItem.val} 個點數圈入框框中並標註「${currentItem.symbol} (${currentItem.val})」，剩餘點數為 ${remaining}。`
+                    });
+                } else {
+                    // Skip to Next Symbol Step
+                    steps.push({
+                        type: 'SKIP',
+                        remaining: remaining,
+                        mapIndex: mapIndex,
+                        symbol: currentItem.symbol,
+                        val: currentItem.val,
+                        currentOutput: [...currentOutput],
+                        explanation: `【不符合】剩餘數值 ${remaining} < ${currentItem.val} (${currentItem.symbol})，切換到下一個較小的羅馬數字。`
+                    });
+                    mapIndex++;
+                }
+            }
+
+            // Final Step
+            const totalRomanStr = currentOutput.map(o => o.symbol).join('');
+            steps.push({
+                type: 'DONE',
+                remaining: 0,
+                mapIndex: mapIndex,
+                symbol: '',
+                val: 0,
+                currentOutput: [...currentOutput],
+                finalRoman: totalRomanStr,
+                explanation: `【轉換完成】所有數值已完全扣除裝箱！最終轉換結果為：${totalRomanStr}`
+            });
+
+            return steps;
+        }
+
+        function renderStep(idx) {
+            if (animationSteps.length === 0) return;
+            if (idx < 0) idx = 0;
+            if (idx >= animationSteps.length) idx = animationSteps.length - 1;
+
+            currentStepIdx = idx;
+            const step = animationSteps[idx];
+            const totalSteps = animationSteps.length;
+
+            // 1. Counter & Badges
+            stepCounter.innerText = `步驟: ${idx + 1} / ${totalSteps}`;
+
+            // Reset active reference table tiles highlight
+            EXPANDED_ROMAN_MAP.forEach((_, i) => {
+                const tile = document.getElementById(`ref-tile-${i}`);
+                if (tile) {
+                    tile.className = "sketch-box w-10 h-12 md:w-11 md:h-13 rounded-xl flex flex-col items-center justify-center bg-white transition-all";
+                }
+            });
+
+            const currentRefTile = document.getElementById(`ref-tile-${step.mapIndex}`);
+
+            if (step.type === 'INIT') {
+                statusBadge.className = "text-xs md:text-sm font-bold text-slate-700 px-3 py-1 rounded-xl bg-slate-100 border border-slate-200";
+                statusBadge.innerText = "🚀 初始化轉換";
+            } else if (step.type === 'MATCH') {
+                statusBadge.className = "text-xs md:text-sm font-bold text-emerald-800 px-3 py-1 rounded-xl bg-emerald-100 border border-emerald-300";
+                statusBadge.innerText = "✓ 符合扣除條件";
+                if (currentRefTile) currentRefTile.className += " highlight-match";
+            } else if (step.type === 'SKIP') {
+                statusBadge.className = "text-xs md:text-sm font-bold text-amber-800 px-3 py-1 rounded-xl bg-amber-100 border border-amber-300";
+                statusBadge.innerText = "➔ 數值不足，跳過";
+                if (currentRefTile) currentRefTile.className += " highlight-skip";
+            } else if (step.type === 'DONE') {
+                statusBadge.className = "text-xs md:text-sm font-bold text-emerald-900 px-3 py-1 rounded-xl bg-emerald-200 border border-emerald-400";
+                statusBadge.innerText = "🎉 轉換全部完成";
+            }
+
+            // 2. Dots Reservoir Rendering
+            remainingCounterText.innerText = `剩餘: ${step.remaining} / ${totalArabic}`;
+            
+            // Limit rendered visual dots for performance if input is large (e.g. 1994)
+            const MAX_VISUAL_DOTS = 100;
+            const consumedDotsCount = totalArabic - step.remaining;
+
+            if (totalArabic <= MAX_VISUAL_DOTS) {
+                let dotsHTML = '';
+                for (let d = 0; d < totalArabic; d++) {
+                    const isConsumed = d < consumedDotsCount;
+                    dotsHTML += `<span class="token-dot ${isConsumed ? 'consumed' : ''}" title="點數 ${d + 1}"></span>`;
+                }
+                dotsReservoir.innerHTML = dotsHTML;
+            } else {
+                dotsReservoir.innerHTML = `
+                    <div class="flex items-center gap-3 text-xs md:text-sm font-mono font-bold text-slate-700 py-1">
+                        <span class="bg-amber-200 px-2.5 py-1 rounded-lg border border-amber-300 text-amber-900">未裝箱點數: ${step.remaining}</span>
+                        <span class="text-slate-400">|</span>
+                        <span class="bg-slate-200 px-2.5 py-1 rounded-lg text-slate-600">已扣除點數: ${consumedDotsCount}</span>
+                    </div>
+                `;
+            }
+
+            // 3. Middle Stage Display
+            if (step.type !== 'DONE') {
+                currSymbolDisplay.innerText = step.symbol;
+                currSymbolValText.innerText = step.symbol;
+                currValText.innerText = step.val;
+                mathRemaining.innerText = step.remaining + (step.type === 'MATCH' ? step.val : 0);
+                mathVal.innerText = step.val;
+
+                if (step.type === 'MATCH') {
+                    matchResultBadge.className = "text-sm font-black px-4 py-2 rounded-xl bg-emerald-500 text-white shadow-sm";
+                    matchResultBadge.innerText = `符合 (≥ ${step.val})`;
+                } else if (step.type === 'SKIP') {
+                    matchResultBadge.className = "text-sm font-black px-4 py-2 rounded-xl bg-slate-200 text-slate-500";
+                    matchResultBadge.innerText = `不足 (< ${step.val})`;
+                } else {
+                    matchResultBadge.className = "text-sm font-black px-4 py-2 rounded-xl bg-slate-100 text-slate-500";
+                    matchResultBadge.innerText = "準備中";
+                }
+            }
+
+            // 4. Narrative Explanation
+            explanationText.innerText = step.explanation;
+
+            // 5. Update Output Sequence (Render Boxed Dots with Roman Labels matching user sketch)
+            if (step.currentOutput.length === 0) {
+                romanOutputSequence.innerHTML = `<span class="text-xs text-slate-400 italic px-2">尚未產生羅馬字元裝箱...</span>`;
+                outputLength.innerText = `字元數: 0`;
+            } else {
+                romanOutputSequence.innerHTML = step.currentOutput.map((item, idx) => {
+                    const isLatest = (idx === step.currentOutput.length - 1) && (step.type === 'MATCH');
+
+                    // Limit rendered dots inside box for very large values (e.g. C=100, M=1000)
+                    const maxDots = 20;
+                    const visibleDots = Math.min(item.val, maxDots);
+                    let dotsHTML = '';
+                    for (let d = 0; d < visibleDots; d++) {
+                        dotsHTML += `<span class="token-dot"></span>`;
+                    }
+                    if (item.val > maxDots) {
+                        dotsHTML += `<span class="text-[10px] font-bold text-amber-800 font-mono align-middle">+${item.val - maxDots}</span>`;
+                    }
+
+                    return `
+                        <div class="sketch-box flex items-center gap-3 p-2.5 bg-white border-2 border-slate-700 rounded-2xl shadow-sm transition-all ${isLatest ? 'highlight-match animate-bounce-short' : ''}">
+                            <!-- Dot Box Container -->
+                            <div class="sketch-dot-frame p-2 bg-amber-50/80 border-2 border-slate-600 rounded-xl flex flex-wrap gap-1 items-center justify-center min-w-[54px] max-w-[130px] min-h-[44px]">
+                                ${dotsHTML}
+                            </div>
+                            <!-- Roman Label & Value -->
+                            <div class="flex flex-col items-center justify-center pr-1 border-l border-slate-200 pl-2">
+                                <span class="roman-font font-black text-xl md:text-2xl text-amber-950 leading-none">${item.symbol}</span>
+                                <span class="text-[11px] font-bold text-slate-600 mt-1">(${item.val})</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('<span class="text-slate-300 font-bold text-lg">+</span>');
+
+                outputLength.innerText = `字元數: ${step.currentOutput.length}`;
+            }
+
+            // 6. Navigation Buttons State
+            btnPrev.disabled = (idx <= 0);
+            btnNext.disabled = (idx >= totalSteps - 1);
+
+            // 7. Final Banner visibility
+            if (step.type === 'DONE') {
+                finalArabicVal.innerText = totalArabic;
+                finalRomanVal.innerText = step.finalRoman;
+                finalResultBanner.classList.remove('hidden');
+                stopAutoPlay();
+            } else {
+                finalResultBanner.classList.add('hidden');
+            }
+        }
+
+        function initApp() {
+            stopAutoPlay();
+            let val = parseInt(arabicInput.value, 10);
+            if (isNaN(val) || val < 1) val = 1;
+            if (val > 3999) val = 3999;
+
+            totalArabic = val;
+            arabicInput.value = val;
+
+            animationSteps = generateSteps(totalArabic);
+            renderReferenceHeader();
+            renderStep(0);
+        }
+
+        function setInputValue(val) {
+            arabicInput.value = val;
+            initApp();
+        }
+
+        function stepNext() {
+            if (currentStepIdx < animationSteps.length - 1) {
+                renderStep(currentStepIdx + 1);
+            } else {
+                stopAutoPlay();
+            }
+        }
+
+        function stepPrev() {
+            if (currentStepIdx > 0) {
+                renderStep(currentStepIdx - 1);
+            }
+        }
+
+        function toggleAutoPlay() {
+            if (playInterval) {
+                stopAutoPlay();
+            } else {
+                if (currentStepIdx >= animationSteps.length - 1) {
+                    renderStep(0);
+                }
+                playIcon.innerText = "⏸";
+                playText.innerText = "暫停播放";
+                playInterval = setInterval(() => {
+                    if (currentStepIdx < animationSteps.length - 1) {
+                        stepNext();
+                    } else {
+                        stopAutoPlay();
+                    }
+                }, PLAY_SPEED);
+            }
+        }
+
+        function stopAutoPlay() {
+            if (playInterval) {
+                clearInterval(playInterval);
+                playInterval = null;
+            }
+            playIcon.innerText = "▶";
+            playText.innerText = "自動播放";
+        }
+
+        // Add Defensive Event Listeners on Load
+        window.onload = function() {
+            if (btnGenerate) btnGenerate.addEventListener('click', initApp);
+            if (btnNext) btnNext.addEventListener('click', () => { stopAutoPlay(); stepNext(); });
+            if (btnPrev) btnPrev.addEventListener('click', () => { stopAutoPlay(); stepPrev(); });
+            if (btnPlay) btnPlay.addEventListener('click', toggleAutoPlay);
+            if (btnReset) btnReset.addEventListener('click', () => {
+                stopAutoPlay();
+                renderStep(0);
+            });
+
+            if (arabicInput) {
+                arabicInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') initApp();
+                });
+            }
+
+            initApp();
+        };
+    </script>
+</body>
+</html>
