@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聖經主題對對碰卡牌產生器</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        /* 畫面上觀看的卡牌樣式 */
+        .preview-card {
+            aspect-ratio: 1 / 1;
+            position: relative;
+            background: #ffffff;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .preview-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        /* Emoji 放置區域 */
+        .emoji-item {
+            position: absolute;
+            transform-origin: center center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .emoji-item:hover {
+            filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.7));
+        }
+
+        /* A4 紙張列印佈局 (螢幕預覽與列印共用) */
+        .a4-page {
+            width: 210mm;
+            height: 297mm;
+            padding: 0;
+            margin: 0 auto;
+            background: white;
+            box-sizing: border-box;
+            page-break-after: always;
+            break-after: page;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 2x2 四等份列印網格 */
+        .print-grid-2x2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        /* 十字裁切線 (貫穿 A4 紙張) */
+        .cut-line-h {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            border-top: 1.5px dashed #94a3b8;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .cut-line-v {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            height: 100%;
+            border-left: 1.5px dashed #94a3b8;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* 四分之一區域 (Quarter Container) */
+        .quarter-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            padding: 8mm;
+            box-sizing: border-box;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 列印用卡牌 */
+        .print-card {
+            width: 82mm;
+            height: 82mm;
+            position: relative;
+            background: #ffffff;
+            border: 1.5px solid #64748b !important;
+            box-sizing: border-box;
+            overflow: hidden;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        .shape-circle {
+            border-radius: 50%;
+        }
+
+        /* 自訂 Screen 與 Print 的顯示切換 */
+        @media screen {
+            .print-only-container {
+                display: none !important;
+            }
+        }
+
+        /* 列印專用 CSS (@media print) */
+        @media print {
+            body {
+                background: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .print-only-container {
+                display: block !important;
+            }
+
+            .a4-page {
+                width: 210mm !important;
+                height: 297mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                box-shadow: none !important;
+                page-break-after: always !important;
+                break-after: page !important;
+            }
+
+            .cut-line-h, .cut-line-v {
+                border-color: #64748b !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .print-card {
+                border: 1.5px solid #64748b !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            @page {
+                size: A4 portrait;
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+    <!-- 頂部控制面板 (列印時隱藏) -->
+    <header class="no-print bg-slate-900 text-white shadow-lg sticky top-0 z-50 border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+            
+            <!-- 標題與分頁切換 -->
+            <div class="flex items-center gap-6">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-3xl">✝️</span>
+                    <div>
+                        <h1 class="text-lg font-black tracking-wide text-amber-400">聖經對對碰卡牌</h1>
+                        <p class="text-[10px] text-slate-400">Biblical Dobble Card Generator</p>
+                    </div>
+                </div>
+
+                <!-- 導覽分頁按鈕 -->
+                <nav class="flex bg-slate-800 p-1 rounded-lg border border-slate-700">
+                    <button id="nav-cards" class="px-3.5 py-1.5 rounded-md text-xs font-bold transition text-amber-400 bg-slate-900 shadow">
+                        🎴 全部卡牌預覽
+                    </button>
+                    <button id="nav-emojis" class="px-3.5 py-1.5 rounded-md text-xs font-medium text-slate-300 hover:text-white transition">
+                        📖 聖經 Emoji 圖庫 (31)
+                    </button>
+                </nav>
+            </div>
+
+            <!-- 控制選項與列印按鈕 -->
+            <div class="flex flex-wrap items-center gap-3">
+                
+                <!-- 難度設定 -->
+                <div class="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
+                    <label class="text-xs text-slate-300 font-medium">難度：</label>
+                    <select id="mode-select" class="bg-slate-900 text-xs font-semibold text-amber-300 rounded px-2 py-1 outline-none border border-slate-600 focus:border-amber-400">
+                        <option value="4">簡單 (每張 4 圖 / 共 13 張)</option>
+                        <option value="6" selected>標準 (每張 6 圖 / 共 31 張)</option>
+                    </select>
+                </div>
+
+                <!-- 洗牌 & 列印 -->
+                <div class="flex items-center gap-2">
+                    <button id="btn-shuffle" title="重新洗牌與重新排版" class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3.5 py-2 rounded-lg transition shadow active:scale-95">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        重新洗牌
+                    </button>
+                    
+                    <button id="btn-print" class="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold px-4 py-2 rounded-lg transition shadow hover:shadow-amber-500/20 active:scale-95">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                        列印卡牌 (A4)
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </header>
+
+    <!-- 主體內容區塊 (螢幕顯示區) -->
+    <main class="no-print flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">
+        
+        <!-- View 1: 所有卡牌圖案一覽區 (不限制 A4 頁數，直接清楚大圖呈現) -->
+        <section id="view-cards-overview" class="space-y-4">
+            
+            <!-- 資訊橫條 -->
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-slate-700">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">💡</span>
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900">遊戲規則與視覺預覽</h2>
+                        <p class="text-xs text-slate-600">在此頁面可以清楚查看所有生成的卡牌圖案！任意兩張卡牌之間，<span class="text-amber-700 font-bold">一定有且僅有一個相同的 Emoji</span>！</p>
+                    </div>
+                </div>
+                <div class="text-xs bg-white px-3 py-1.5 rounded-lg border border-amber-200 font-medium text-slate-600 self-start sm:self-auto">
+                    目前共有 <span id="total-cards-count" class="font-bold text-amber-600">31</span> 張卡牌
+                </div>
+            </div>
+
+            <!-- 卡牌響應式網格 (清楚大圖展示) -->
+            <div id="overview-cards-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pt-2">
+                <!-- 由 JavaScript 填充動態產生 -->
+            </div>
+        </section>
+
+        <!-- View 2: Emoji 圖庫與聖經故事細節對照表 -->
+        <section id="view-emojis-library" class="hidden space-y-4">
+            
+            <!-- 搜尋與介紹區 -->
+            <div class="bg-white border border-slate-200 rounded-xl p-4 md:p-5 shadow-sm space-y-3">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                            <span>📖</span> 聖經主題 Emoji 圖案對照庫
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">點擊卡片可查看對應的故事與經文出處，方便主日學教學與活動解說。</p>
+                    </div>
+
+                    <!-- 搜尋框 -->
+                    <div class="relative w-full md:w-64">
+                        <input type="text" id="emoji-search" placeholder="搜尋圖案、故事或經文..." class="w-full bg-slate-50 border border-slate-300 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                        <svg class="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </div>
+                </div>
+
+                <!-- 統計資訊 -->
+                <div class="text-xs text-slate-500 flex items-center justify-between">
+                    <span>題庫數量：<strong class="text-slate-800">31</strong> 個經典聖經元素</span>
+                    <span class="text-amber-600 font-medium">點擊經文連結可閱讀靈修含意</span>
+                </div>
+            </div>
+
+            <!-- Emoji 故事卡片網格 -->
+            <div id="emoji-cards-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <!-- 由 JavaScript 動態填充 -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 隱藏在畫面，僅在按下「點列印」或 window.print() 時顯示的 A4 排版容器 -->
+    <div class="print-only-container">
+        <div id="print-pages-wrapper">
+            <!-- 由 JavaScript 依照 A4 每頁 4 張 (2x2) 生成專業列印格式 -->
+        </div>
+    </div>
+
+    <!-- 頁腳 (列印隱藏) -->
+    <footer class="no-print bg-slate-900 text-slate-400 text-xs text-center py-4 border-t border-slate-800 mt-auto">
+        <p>聖經主題對對碰卡牌產生器 &copy; 2026 | 有限射影平面演算法 (Finite Projective Plane)</p>
+    </footer>
+
+    <!-- 邏輯腳本 -->
+    <script>
+        // 1. 31 個完整的聖經 Emoji 圖案、名稱、故事與經文章節
+        const BIBLE_EMOJIS = [
+            { symbol: '🐫', name: '駱駝', story: '亞伯拉罕的僕人帶著駱駝前往尋找新娘利百加', verse: '創世記 24:10' },
+            { symbol: '✝️', name: '十字架', story: '耶穌為世人的罪被釘十字架，成就救贖恩典', verse: '約翰福音 19:17-18' },
+            { symbol: '🕊️', name: '鴿子', story: '耶穌受洗時聖靈如鴿子降臨 / 挪亞方舟叼回橄欖枝', verse: '馬太福音 3:16' },
+            { symbol: '🍞', name: '生命的糧', story: '耶穌宣告：「我就是生命的糧，到我這裡來的必定不餓」', verse: '約翰福音 6:35' },
+            { symbol: '🍷', name: '葡萄汁', story: '最後的晚餐，耶穌用葡萄汁代表立約的新血', verse: '路加福音 22:20' },
+            { symbol: '🐟', name: '五餅二魚', story: '孩童獻出五餅二魚，耶穌祝謝後使五千人吃飽', verse: '約翰福音 6:9-13' },
+            { symbol: '👑', name: '冠冕', story: '耶穌是萬王之王，並為得勝者預備公義的冠冕', verse: '啟示錄 19:16' },
+            { symbol: '🍎', name: '果實', story: '伊甸園中亞當與夏娃違背神命令吃了分別善惡樹的果子', verse: '創世記 3:6' },
+            { symbol: '🚢', name: '挪亞方舟', story: '挪亞順服神的吩咐建造方舟，使全家與動物躲避洪水', verse: '創世記 6:14' },
+            { symbol: '🐑', name: '小綿羊', story: '耶穌是好牧人，撇下九十九隻去尋找迷失的一隻羊', verse: '路加福音 15:4' },
+            { symbol: '🔥', name: '火焰', story: '摩西在曠野看見荊棘被火燒著卻沒有燒毀 / 五旬節聖靈降臨', verse: '出埃及記 3:2' },
+            { symbol: '🌈', name: '彩虹', story: '神在雲彩中設立彩虹，作為不再用洪水毀滅大地立約的記號', verse: '創世記 9:13' },
+            { symbol: '⭐️', name: '伯利恆之星', story: '東方博士跟隨天上的星尋找誕生降世的耶穌', verse: '馬太福音 2:2' },
+            { symbol: '🐓', name: '公雞', story: '耶穌豫言彼得會在雞叫以前三次不認祂', verse: '馬太福音 26:75' },
+            { symbol: '🌱', name: '芥菜種', story: '信心像一粒芥菜種，雖然微小卻能長成大樹', verse: '馬太福音 13:31' },
+            { symbol: '🐍', name: '古蛇 / 銅蛇', story: '伊甸園引誘人的蛇 / 摩西在曠野舉起銅蛇使望者得救', verse: '創世記 3:1' },
+            { symbol: '🦁', name: '獅子', story: '但以理因堅持向神禱告被扔進獅子坑，神封住獅子的口', verse: '但以理書 6:22' },
+            { symbol: '🐳', name: '大魚', story: '約拿不順服神，被大魚吞入腹中三天三夜後悔改拯救尼尼微', verse: '約拿書 1:17' },
+            { symbol: '🌾', name: '小麥', story: '撒種的比喻：落在好土裡的結實百倍', verse: '馬太福音 13:8' },
+            { symbol: '👼', name: '天使', story: '天使向牧羊人報大喜的信息：救主基督今日降生了', verse: '路加福音 2:10' },
+            { symbol: '📜', name: '聖經卷軸', story: '神的話語是我們腳前的燈、路上的光', verse: '詩篇 119:105' },
+            { symbol: '⛰️', name: '西奈山', story: '摩西登上西奈山，在神的榮光中領受十誡石牌', verse: '出埃及記 19:20' },
+            { symbol: '🌊', name: '紅海 / 風浪', story: '神使紅海分開走乾地 / 耶穌在船上斥責風浪歸於平靜', verse: '出埃及記 14:21' },
+            { symbol: '🌿', name: '橄欖枝', story: '鴿子叼著新擰下來的橄欖葉子回到方舟，象徵和平與希望', verse: '創世記 8:11' },
+            { symbol: '🙏', name: '禱告', story: '耶穌教導主禱文，要我們常常禱告、不可灰心', verse: '馬太福音 6:9' },
+            { symbol: '⛪', name: '神的教會', story: '信徒同心合意聚集敬拜，彼此相愛連結成基督的身體', verse: '使徒行傳 2:46' },
+            { symbol: '🦅', name: '展翅老鷹', story: '但那等候耶和華的必重新得力，必如鷹展翅上騰', verse: '以賽亞書 40:31' },
+            { symbol: '☀️', name: '太陽', story: '約書亞向耶和華禱告，日頭在天空中停住約有一日', verse: '約書亞記 10:12' },
+            { symbol: '🌙', name: '月亮', story: '神在第四天創造日光與月光，管理晝夜與節令', verse: '創世記 1:16' },
+            { symbol: '❤️', name: '愛心', story: '神愛世人；最大的誡命是愛神與愛人如己', verse: '約翰福音 3:16' },
+            { symbol: '🎁', name: '恩典禮物', story: '救恩是神賜給世人免費的禮物，不是出於行為乃是出於信', verse: '以弗所書 2:8' }
+        ];
+
+        let currentDeck = [];
+
+        // 2. 有限射影平面卡牌生成演算法
+        function generateDobbleDeck(symbolsPerCard, forceShuffle = false) {
+            let n = (symbolsPerCard === 4) ? 3 : 5;
+            const totalCards = n * n + n + 1; // 13 或 31
+
+            let selectedSymbols = [...BIBLE_EMOJIS];
+            if (forceShuffle) {
+                selectedSymbols.sort(() => Math.random() - 0.5);
+            }
+            selectedSymbols = selectedSymbols.slice(0, totalCards);
+
+            const generatedDeck = [];
+
+            // 第一張無窮遠卡牌
+            let card1 = [0];
+            for(let i = 0; i < n; i++) card1.push(1 + i * n);
+            generatedDeck.push(card1);
+
+            // n 張平行線族卡牌
+            for (let i = 0; i < n; i++) {
+                let card = [0];
+                for (let j = 0; j < n; j++) card.push(1 + j + i * n);
+                generatedDeck.push(card);
+            }
+
+            // n * n 張主要卡牌
+            for (let i = 0; i < n; i++) {
+                for (let j = 0; j < n; j++) {
+                    let card = [i + 1];
+                    for (let k = 0; k < n; k++) {
+                        let point = 1 + n + k * n + ((i * k + j) % n);
+                        card.push(point);
+                    }
+                    generatedDeck.push(card);
+                }
+            }
+
+            return generatedDeck.map(cardIndices => {
+                const card = cardIndices.map(idx => selectedSymbols[idx]);
+                return forceShuffle ? card.sort(() => Math.random() - 0.5) : card;
+            });
+        }
+
+        // 3. 計算 Emoji 佈局
+        function calculateEmojiLayouts(symbolsCount) {
+            const positions = [];
+            
+            if (symbolsCount === 4) {
+                positions.push({ x: 50, y: 50, size: 48, isCenter: true });
+                const radius = 30;
+                const startAngle = 0;
+                for (let i = 0; i < 3; i++) {
+                    const angle = (startAngle + i * 120) * (Math.PI / 180);
+                    positions.push({
+                        x: 50 + radius * Math.cos(angle),
+                        y: 50 + radius * Math.sin(angle),
+                        size: 28,
+                        isCenter: false
+                    });
+                }
+            } else {
+                positions.push({ x: 50, y: 50, size: 68, isCenter: true });
+                const radius = 32;
+                const startAngle = -90;
+                for (let i = 0; i < 5; i++) {
+                    const angle = (startAngle + i * 72) * (Math.PI / 180);
+                    positions.push({
+                        x: 50 + radius * Math.cos(angle),
+                        y: 50 + radius * Math.sin(angle),
+                        size: 38,
+                        isCenter: false
+                    });
+                }
+            }
+
+            return positions.map((pos) => {
+                const randomRotate = Math.floor(Math.random() * 360);
+                return {
+                    x: pos.x,
+                    y: pos.y,
+                    size: pos.size,
+                    rotate: randomRotate
+                };
+            });
+        }
+
+        // 4. UI 渲染方法
+        const modeSelect = document.getElementById('mode-select');
+        const overviewCardsGrid = document.getElementById('overview-cards-grid');
+        const printPagesWrapper = document.getElementById('print-pages-wrapper');
+        const totalCardsCount = document.getElementById('total-cards-count');
+
+        function renderDeck(forceShuffle = false) {
+            const symbolsPerCard = parseInt(modeSelect.value, 10);
+            
+            currentDeck = generateDobbleDeck(symbolsPerCard, forceShuffle);
+            totalCardsCount.innerText = currentDeck.length;
+
+            // --- A. 渲染螢幕預覽畫面 ---
+            overviewCardsGrid.innerHTML = '';
+            currentDeck.forEach((cardEmojis, idx) => {
+                const cardEl = document.createElement('div');
+                cardEl.className = `preview-card shape-circle border border-slate-200/80 rounded-full p-2`;
+
+                const layouts = calculateEmojiLayouts(symbolsPerCard);
+
+                cardEmojis.forEach((emojiObj, eIdx) => {
+                    const layout = layouts[eIdx];
+                    const emojiEl = document.createElement('div');
+                    emojiEl.className = 'emoji-item';
+                    emojiEl.title = `${emojiObj.name} (${emojiObj.verse})`;
+                    emojiEl.style.left = `${layout.x}%`;
+                    emojiEl.style.top = `${layout.y}%`;
+                    emojiEl.style.fontSize = `${layout.size}px`;
+                    emojiEl.style.transform = `translate(-50%, -50%) rotate(${layout.rotate}deg)`;
+                    emojiEl.innerText = emojiObj.symbol;
+                    cardEl.appendChild(emojiEl);
+                });
+
+                const badge = document.createElement('div');
+                badge.className = 'absolute bottom-3 right-4 text-[11px] font-bold text-slate-300 pointer-events-none select-none';
+                badge.innerText = `#${idx + 1}`;
+                cardEl.appendChild(badge);
+
+                overviewCardsGrid.appendChild(cardEl);
+            });
+
+            // --- B. 渲染 A4 均勻切成 4 份的列印專用排版 ---
+            printPagesWrapper.innerHTML = '';
+            const cardsPerPage = 4; // A4 一頁 4 個象限 (2x2)
+
+            let currentPage = null;
+            let currentGrid = null;
+
+            currentDeck.forEach((cardEmojis, idx) => {
+                // 每 4 張卡牌建立一個新的 A4 頁面
+                if (idx % cardsPerPage === 0) {
+                    currentPage = document.createElement('div');
+                    currentPage.className = 'a4-page';
+
+                    // 創建 2x2 網格容器
+                    currentGrid = document.createElement('div');
+                    currentGrid.className = 'print-grid-2x2';
+
+                    // 建立十字虛線裁切線
+                    const lineH = document.createElement('div');
+                    lineH.className = 'cut-line-h';
+                    const lineV = document.createElement('div');
+                    lineV.className = 'cut-line-v';
+
+                    currentGrid.appendChild(lineH);
+                    currentGrid.appendChild(lineV);
+                    currentPage.appendChild(currentGrid);
+
+                    printPagesWrapper.appendChild(currentPage);
+                }
+
+                // 建立四分之一區塊 (Quarter Cell)
+                const quarterCell = document.createElement('div');
+                quarterCell.className = 'quarter-cell';
+
+                // 建立列印卡牌 (圓形置中)
+                const printCardEl = document.createElement('div');
+                printCardEl.className = `print-card shape-circle`;
+
+                const layouts = calculateEmojiLayouts(symbolsPerCard);
+
+                cardEmojis.forEach((emojiObj, eIdx) => {
+                    const layout = layouts[eIdx];
+                    const emojiEl = document.createElement('div');
+                    emojiEl.className = 'emoji-item';
+                    emojiEl.style.left = `${layout.x}%`;
+                    emojiEl.style.top = `${layout.y}%`;
+                    emojiEl.style.fontSize = `${layout.size}px`;
+                    emojiEl.style.transform = `translate(-50%, -50%) rotate(${layout.rotate}deg)`;
+                    emojiEl.innerText = emojiObj.symbol;
+                    printCardEl.appendChild(emojiEl);
+                });
+
+                // 卡片編號
+                const numLabel = document.createElement('span');
+                numLabel.className = 'absolute bottom-2 right-3 text-[9px] font-mono text-slate-300 pointer-events-none';
+                numLabel.innerText = `#${idx + 1}`;
+                printCardEl.appendChild(numLabel);
+
+                quarterCell.appendChild(printCardEl);
+                currentGrid.appendChild(quarterCell);
+            });
+        }
+
+        // 5. 渲染 Emoji 圖案對照庫
+        const emojiCardsContainer = document.getElementById('emoji-cards-container');
+        const emojiSearchInput = document.getElementById('emoji-search');
+
+        function renderEmojiLibrary(filterText = '') {
+            emojiCardsContainer.innerHTML = '';
+            
+            const filtered = BIBLE_EMOJIS.filter(item => {
+                const query = filterText.toLowerCase();
+                return item.name.toLowerCase().includes(query) ||
+                       item.story.toLowerCase().includes(query) ||
+                       item.verse.toLowerCase().includes(query) ||
+                       item.symbol.includes(query);
+            });
+
+            if (filtered.length === 0) {
+                emojiCardsContainer.innerHTML = `<div class="col-span-full py-8 text-center text-slate-400 text-sm">找不到符合的聖經 Emoji</div>`;
+                return;
+            }
+
+            filtered.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition flex flex-col justify-between gap-2';
+                card.innerHTML = `
+                    <div>
+                        <div class="flex items-center gap-3 border-b border-slate-100 pb-2.5 mb-2">
+                            <span class="text-4xl bg-slate-50 p-1.5 rounded-lg border border-slate-100">${item.symbol}</span>
+                            <div>
+                                <h3 class="font-bold text-slate-900 text-base">${item.name}</h3>
+                                <span class="inline-block bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full mt-0.5">${item.verse}</span>
+                            </div>
+                        </div>
+                        <p class="text-xs text-slate-600 leading-relaxed">${item.story}</p>
+                    </div>
+                `;
+                emojiCardsContainer.appendChild(card);
+            });
+        }
+
+        // 6. 頁籤切換邏輯
+        const navCards = document.getElementById('nav-cards');
+        const navEmojis = document.getElementById('nav-emojis');
+        const viewCardsOverview = document.getElementById('view-cards-overview');
+        const viewEmojisLibrary = document.getElementById('view-emojis-library');
+
+        navCards.addEventListener('click', () => {
+            navCards.className = 'px-3.5 py-1.5 rounded-md text-xs font-bold transition text-amber-400 bg-slate-900 shadow';
+            navEmojis.className = 'px-3.5 py-1.5 rounded-md text-xs font-medium text-slate-300 hover:text-white transition';
+            viewCardsOverview.classList.remove('hidden');
+            viewEmojisLibrary.classList.add('hidden');
+        });
+
+        navEmojis.addEventListener('click', () => {
+            navEmojis.className = 'px-3.5 py-1.5 rounded-md text-xs font-bold transition text-amber-400 bg-slate-900 shadow';
+            navCards.className = 'px-3.5 py-1.5 rounded-md text-xs font-medium text-slate-300 hover:text-white transition';
+            viewEmojisLibrary.classList.remove('hidden');
+            viewCardsOverview.classList.add('hidden');
+        });
+
+        // 7. 事件監聽設定
+        modeSelect.addEventListener('change', () => renderDeck(false));
+
+        document.getElementById('btn-shuffle').addEventListener('click', () => {
+            renderDeck(true);
+        });
+
+        document.getElementById('btn-print').addEventListener('click', () => {
+            window.print();
+        });
+
+        emojiSearchInput.addEventListener('input', (e) => {
+            renderEmojiLibrary(e.target.value);
+        });
+
+        // 初始化
+        window.addEventListener('DOMContentLoaded', () => {
+            renderDeck(false);
+            renderEmojiLibrary();
+        });
+    </script>
+</body>
+</html>
